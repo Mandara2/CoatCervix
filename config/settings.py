@@ -14,10 +14,10 @@ class_names = ["Type 1", "Type 2", "Type 3"]
 SEED = 42
 
 # Nombre del modelo
-MODEL_NAME = "NewCoatROC"
+MODEL_NAME = "CoatCervix"
 
 # Paths principales
-BASE_PATH = "/data/home/rtabares/Cervical"
+BASE_PATH = "RUTA_PRINCIPAL"
 DATA_PATH = os.path.join(BASE_PATH, "Cervical_clean")
 RESULTS_PATH = os.path.join(BASE_PATH, "Coat", "new_coat", "results")
 
