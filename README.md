@@ -62,6 +62,20 @@ python main.py
 
 ---
 
+## Dataset
+
+The refined subset of the Intel & MobileODT Cervical Cancer 
+Screening dataset used in this study — comprising 766 manually 
+reviewed and preprocessed colposcopic images — is publicly 
+available on Zenodo:
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212544.svg)](https://doi.org/10.5281/zenodo.19212544)
+
+> Medina-López, R. et al. (2025). *Refined Subset of the Intel 
+> & MobileODT Cervical Cancer Screening Dataset: Manual Curation 
+> and ROI Preprocessing for Colposcopic Image Classification*. 
+> Zenodo. https://doi.org/10.5281/zenodo.19212544
+
 ## Methodology
 
 ### Data Preparation and Stratification
