@@ -11,12 +11,7 @@ from training.utils import get_parameter_summary, set_seed
 
 def train_model(train_loader, val_loader, seed=settings.SEED):
     """
-    Entrena (o reentrena) el modelo definido en settings.MODEL_NAME.
-
-    Cumple con principios SOLID:
-    - SRP: se encarga solo del entrenamiento (no de la carga ni evaluación externa)
-    - OCP: configurable por settings y parámetros
-    - DIP: depende de abstracciones (DataLoader, settings), no implementaciones concretas
+    Train the CustomCoaT model using the provided training and validation DataLoaders.
     """
 
     set_seed(seed)
@@ -26,28 +21,23 @@ def train_model(train_loader, val_loader, seed=settings.SEED):
     weights_path = os.path.join(settings.SAVE_GRAPHICS_PATH, f"{settings.MODEL_NAME}.pth")
     os.makedirs(settings.SAVE_GRAPHICS_PATH, exist_ok=True)
 
-    # === Inicializar modelo ===
+    # === Initialize model ===
     model = CustomCoaT(pretrained=True, num_classes=settings.num_classes).to(settings.device)
     get_parameter_summary(model)
 
-    # === Configurar optimizador y criterio ===
+    # === Configure optimizer and criterion ===
     optimizer = optim.Adam(model.parameters(), lr=settings.lr)
     
     criterion = nn.CrossEntropyLoss()
 
-    # === Opcional: cargar pesos previos ===
-    # ⚠️ Comentado para entrenamiento limpio
-    # Si quieres fine-tuning, descomenta la siguiente línea
-    # if os.path.exists(weights_path):
-    #     print(f"🔄 Cargando pesos existentes: {weights_path}")
-    #     model.load_state_dict(torch.load(weights_path, map_location=settings.device))
+    # optional: scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 
-    # === Variables de seguimiento ===
+    # === variables of interest ===
     history_train_loss, history_val_loss = [], []
     best_val_f1, best_val_acc = 0.0, 0.0
     best_model_state = None
 
-    # === Ciclo de entrenamiento ===
+    # === training cycle ===
     for epoch in range(1, settings.epochs + 1):
         model.train()
         running_loss = 0.0
@@ -66,7 +56,7 @@ def train_model(train_loader, val_loader, seed=settings.SEED):
         epoch_loss_train = running_loss / len(train_loader.dataset)
         history_train_loss.append(epoch_loss_train)
 
-        # === Validación ===
+        # === Validation ===
         model.eval()
         val_running_loss = 0.0
         labels_all, preds_all = [], []
@@ -88,13 +78,13 @@ def train_model(train_loader, val_loader, seed=settings.SEED):
         f1 = f1_score(labels_all, preds_all, average="macro")
         acc = np.mean(np.array(preds_all) == np.array(labels_all)) * 100
 
-        # === Guardar mejor modelo ===
+        # === save best model ===
         if f1 > best_val_f1:
             best_val_f1 = f1
             best_val_acc = acc
             best_model_state = model.state_dict()
             torch.save(best_model_state, weights_path)
-            print(f"💾 Nuevos mejores pesos guardados: {weights_path}")
+            print(f"💾 best weights save here: {weights_path}")
 
         print(f"[Epoch {epoch}/{settings.epochs}] "
               f"Train Loss: {epoch_loss_train:.4f} | "
@@ -113,7 +103,7 @@ def train_model(train_loader, val_loader, seed=settings.SEED):
         epochs=settings.epochs
     )
 
-    print(f"✅ Entrenamiento finalizado | Mejor F1: {best_val_f1:.4f} | Mejor Accuracy: {best_val_acc:.2f}%")
+    print(f"✅ Training completed | Best F1: {best_val_f1:.4f} | Best Accuracy: {best_val_acc:.2f}%")
 
     return {
         "model": model,

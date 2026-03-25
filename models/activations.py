@@ -9,4 +9,4 @@ def get_activation(name):
     name = name.lower()
     if name == "tanhexp":
         return TanhExp()
-    raise ValueError(f"Activación no soportada: {name}")
+    raise ValueError(f"Activation not supported: {name}")

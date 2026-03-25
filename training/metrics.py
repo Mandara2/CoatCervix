@@ -18,8 +18,7 @@ def compute_and_save_metrics(
     device="cpu"
 ):
     """
-    Calcula métricas, matriz de confusión, ROC, Grad-CAM y CSV usando un DataLoader.
-    Devuelve un dict con métricas.
+    Compute metrics on the test set, save confusion matrix, ROC curve, Grad-CAM visualizations, and store results in a CSV file.
     """
     model.eval()
     all_labels, all_preds, all_probs = [], [], []
@@ -47,16 +46,16 @@ def compute_and_save_metrics(
     save_confusion_matrix(
         all_labels, all_preds, class_names, save_dir,
         file_name=f"confusion_matrix_{model_name}_{timestamp}.png",
-        title=f"Matriz de confusión (Test) - {model_name}"
+        title=f"Confusion Matrix (Test) - {model_name}"
     )
 
-    # Curva ROC
+    # ROC Curve
     try:
         save_roc_curve(all_labels, all_probs, class_names, save_dir, epoch=f"{model_name}_TEST_{timestamp}")
     except Exception as e:
-        print(f"⚠️ No se pudo generar ROC: {e}")
+        print(f"⚠️ Error generating ROC curve: {e}")
 
-    # Grad-CAM de la primera imagen del primer batch
+    # Grad-CAM for one sample
     try:
         imgs_one, labels_one = next(iter(X_test_loader))
         img_one = imgs_one[0].unsqueeze(0).to(device)
@@ -72,7 +71,7 @@ def compute_and_save_metrics(
             std=std
         )
     except Exception as e:
-        print(f"⚠️ Error generando Grad-CAM: {e}")
+        print(f"⚠️ Error generating Grad-CAM: {e}")
 
     # Guardar métricas en CSV
     csv_path = os.path.join(save_dir, f"resultados_TEST_{model_name}_{timestamp}.csv")
@@ -81,7 +80,7 @@ def compute_and_save_metrics(
         writer.writerow(["Model", "Accuracy", "Precision", "Recall", "F1"])
         writer.writerow([model_name, f"{acc:.4f}", f"{prec:.4f}", f"{rec:.4f}", f"{f1:.4f}"])
 
-    print(f"✅ Métricas guardadas en: {csv_path}")
+    print(f"✅ Metrics saved in: {csv_path}")
     print(f"📊 Acc: {acc:.4f} | Prec: {prec:.4f} | Rec: {rec:.4f} | F1: {f1:.4f}")
 
     return {

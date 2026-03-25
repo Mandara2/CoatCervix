@@ -6,7 +6,7 @@ from config import settings
 
 class NPYDataset(Dataset):
     """
-    Dataset simple que recibe X e y en formato numpy arrays y devuelve tensores [C,H,W] y etiquetas.
+    dataset personalized for numpy arrays, converting them to PyTorch tensors and rearranging dimensions as needed.
     """
     def __init__(self, X, y):
         self.X = torch.from_numpy(np.transpose(X, (0, 3, 1, 2))).float()  # Convertir [N,H,W,C] -> [N,C,H,W]
@@ -21,7 +21,7 @@ class NPYDataset(Dataset):
 
 def create_dataloaders(X_train, y_train, X_val, y_val, X_test, y_test, batch_size=settings.batch_size, seed=settings.SEED):
     """
-    Crea los DataLoaders para train, val y test a partir de numpy arrays.
+    Create the dataloaders for train, validation, and test sets.
     """
     # Crear datasets
     train_dataset = NPYDataset(X_train, y_train)

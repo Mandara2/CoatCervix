@@ -3,14 +3,14 @@ import numpy as np
 
 def parse_label_mode(mode: str):
     """
-    Normaliza el modo de entrada. Ejemplos válidos:
+    normalize label mode string, accepting variations like
       "0vs1", "1vs2", "0vs2", "0vs12", "0v12", "0v(1+2)", "multiclass"
-    Devuelve una representación estándar (lower).
+    Returns a standard representation (lowercase).
     """
     if mode is None:
         return "multiclass"
     s = str(mode).lower().replace(" ", "")
-    s = s.replace("v", "vs")  # aceptar "0v12"
+    s = s.replace("v", "vs")  # accept "0v12"
     s = s.replace("+", "")
     s = s.replace("(", "").replace(")", "")
     if s in ("multiclass", ""):
@@ -21,12 +21,12 @@ def build_label_map(mode: str, y: np.ndarray):
     """
     Recibe:
       - mode: string como "0vs1", "1vs2", "0vs12" (0 vs (1,2)), o "multiclass".
-      - y: array original de etiquetas (num_samples,)
+      - y: original array of labels (num_samples,)
     Devuelve:
-      - indices: mask o arreglo de índices de muestras que se usarán
-      - y_new: etiquetas remapeadas (0..num_classes-1)
-      - class_names: lista de nombres para las clases resultantes
-      - num_classes: 1,2 o 3 (1 no esperado; si no hay clases, error)
+      - indices: mask or array of indices of samples to be used
+      - y_new: remapped labels (0..num_classes-1)
+      - class_names: list of names for the resulting classes
+      - num_classes: 1,2 or 3 (1 not expected; if no classes, error)
     Reglas:
       - "0vs1" => keep only samples with y in {0,1}, map 0->0,1->1
       - "0vs12" => keep samples with y in {0,1,2}, map 0->0, (1,2)->1
@@ -39,7 +39,7 @@ def build_label_map(mode: str, y: np.ndarray):
 
     # soportar patrones: "avuB"  e.g. "0vs1", "0vs12", "1vs2"
     if "vs" not in mode:
-        raise ValueError(f"Mode inválido: {mode}. Usa '0vs1','1vs2','0vs12' o 'multiclass'.")
+        raise ValueError(f"invalid mode: {mode}. Uses '0vs1','1vs2','0vs12' or 'multiclass'.")
 
     left, right = mode.split("vs", 1)
 
@@ -53,7 +53,7 @@ def build_label_map(mode: str, y: np.ndarray):
     right_set = parse_set(right)
 
     if not left_set or not right_set:
-        raise ValueError("Sets empty in mode. Ejemplo válido: '0vs1', '0vs12'.")
+        raise ValueError("Sets empty in mode. Example valid: '0vs1', '0vs12'.")
 
     # Decide mapping: map left_set -> 0, right_set -> 1
     allowed = left_set.union(right_set)

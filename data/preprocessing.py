@@ -29,38 +29,37 @@ def apply_clahe(img_array):
 
 def preprocess_all_datasets(X_train, X_val, X_test, target_size):
     """
-    Redimensiona, aplica CLAHE y normaliza X_train, X_val y X_test en un solo paso.
-    La normalización se hace usando mean y std calculados solo sobre X_train filtrado.
+    redimensioned the images, apply CLAHE filter, and normalize using the mean and std of the training set.
 
-    Parámetros
+    Parameters
     ----------
     X_train, X_val, X_test : np.ndarray
-        Conjuntos de imágenes originales (N, H, W, C)
+        sets of original images (N, H, W, C)
     target_size : tuple[int, int]
-        Tamaño deseado para redimensionar las imágenes
+        desired size for resizing the images
 
-    Retorna
+    Returns
     -------
     tuple : (X_train_norm, X_val_norm, X_test_norm)
-        Conjuntos normalizados listos para DataLoader
+        sets of normalized images ready for DataLoader
     """
 
-    # --- Redimensionar todos los conjuntos ---
+    # --- Redimentioned all the sets ---
     X_train_resized = resize_images(X_train, target_size)
     X_val_resized   = resize_images(X_val, target_size)
     X_test_resized  = resize_images(X_test, target_size)
 
-    # --- Calcular mean y std solo de X_train filtrado ---
+    # --- Calculate mean y std only of filtered X_train ---
     mean = X_train_resized.mean(axis=(0,1,2))
     std  = X_train_resized.std(axis=(0,1,2))
 
-    # --- Aplicar filtro CLAHE ---
+    # --- Apply CLAHE filter ---
     X_train_filt = np.array([apply_clahe(img) for img in X_train_resized])
     X_val_filt   = np.array([apply_clahe(img) for img in X_val_resized])
     X_test_filt  = np.array([apply_clahe(img) for img in X_test_resized])
 
     
-    # --- Normalizar todos los conjuntos ---
+    # --- Normalize all sets ---
     X_train_norm = (X_train_filt - mean) / (std + 1e-8)
     X_val_norm   = (X_val_filt - mean) / (std + 1e-8)
     X_test_norm  = (X_test_filt  - mean) / (std + 1e-8)

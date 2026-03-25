@@ -8,7 +8,7 @@ class CustomCoaT(nn.Module):
         self.backbone = timm.create_model("coat_lite_medium", pretrained=pretrained, num_classes=0, img_size=224)
         in_feats = getattr(self.backbone, "num_features", None)
         if in_feats is None:
-            raise RuntimeError("No se pudo inferir 'num_features' del backbone.")
+            raise RuntimeError("we cannot infer 'num_features' from the backbone.")
 
         act_layer = get_activation(activation_name)
         self.classifier = nn.Sequential(

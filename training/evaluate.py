@@ -16,7 +16,7 @@ def evaluate_saved_model(model_path, X_test_loader, mean, std):
 
     model = CustomCoaT(num_classes=settings.num_classes, pretrained=False).to(device)
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"No se encontró el modelo en: {model_path}")
+        raise FileNotFoundError(f"Model not found at: {model_path}")
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 

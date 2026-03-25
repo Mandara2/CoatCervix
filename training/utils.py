@@ -20,11 +20,11 @@ def clean_cuda():
 
 
 def calculate_efficiency_metrics(model, input_size=(3, 224, 224), device='cuda'):
-    """Calcula GFLOPS, Parámetros y Tiempo de Inferencia usando ptflops."""
+    """Calculate GFLOPS, number of parameters, and latency for a given model."""
     
-    # 1. Calcular GFLOPS y Parámetros (Usando ptflops)
+    # 1. Calculate GFLOPS and number of parameters using ptflops
     try:
-        # Nota: ptflops requiere el tamaño sin el batch size (H, W)
+        # Nota: ptflops need that the model are in the GPU, otherwise it can give errors with some layers (ej. LayerNorm)
         macs, params = get_model_complexity_info(
             model, 
             input_size, 
@@ -33,24 +33,21 @@ def calculate_efficiency_metrics(model, input_size=(3, 224, 224), device='cuda')
             verbose=False
         )
         
-        # MACs (Multiply-Accumulate Operations) son a menudo reportados como FLOPS
+        # MACs (Multiply-Accumulate Operations) are frecuently used to calculate FLOPS (Floating Point Operations Per Second).
         gflops = macs / 1e9  
-        m_params = params / 1e6 # Convertir Parámetros a Millones
+        m_params = params / 1e6 # Convert parameters to millions for easier interpretation
     except Exception as e:
         print(f"⚠️ Error en ptflops: {e}")
         gflops, m_params = 0.0, 0.0
 
-    # 2. Medir Tiempo de Inferencia (Latency - Mismo código que antes)
+    # 2. measure times of latency (inference time) using torch.cuda.Event for GPU and time.time() for CPU
     model.eval()
     input_tensor = torch.randn(1, *input_size).to(device)
     num_runs = 100 
     
-    # [Resto del código de medición de latencia (starter, ender, etc.)]
     if device.type == 'cuda':
         starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-        # Calentar GPU
         for _ in range(10): _ = model(input_tensor)
-        # Medición
         starter.record()
         for _ in range(num_runs): _ = model(input_tensor)
         ender.record()
@@ -67,7 +64,7 @@ def calculate_efficiency_metrics(model, input_size=(3, 224, 224), device='cuda')
 
 def get_parameter_summary(model):
     """
-    Calcula el número total de parámetros y el número de parámetros entrenables.
+    Calculate the total number of parameters and the number of trainable parameters.
     """
     total_params = 0
     trainable_params = 0
@@ -79,20 +76,19 @@ def get_parameter_summary(model):
         
     non_trainable_params = total_params - trainable_params
     
-    # Formatear a millones para la salida del artículo (M)
     total_m = total_params / 1e6
     trainable_m = trainable_params / 1e6
     non_trainable_m = non_trainable_params / 1e6
 
-    print("\n📊 Resumen de Parámetros del Modelo:")
-    print(f"Total de Parámetros: {total_m} M")
-    print(f"Entrenables: {trainable_m} M")
-    print(f"No Entrenables: {non_trainable_m} M")
-    
+    print("\n📊 Parameter Summary of the Model:")
+    print(f"Total Parameters: {total_m} M")
+    print(f"Trainable: {trainable_m} M")
+    print(f"Non-Trainable: {non_trainable_m} M")
+
     return {
         "Total_M": total_m,
         "Trainable_M": trainable_m,
         "Non_Trainable_M": non_trainable_m,
-        "Total_Raw": total_params # Para cálculos exactos
+        "Total_Raw": total_params 
     }
 

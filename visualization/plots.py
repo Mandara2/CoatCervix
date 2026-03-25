@@ -7,25 +7,25 @@ from sklearn.metrics import roc_curve, auc
 
 def save_roc_curve(y_true, y_pred_probs, class_names, save_path, epoch=None):
     """
-    Guarda la curva ROC para un conjunto de predicciones.
+    save roc curve for multi-class classification.
     
-    Parámetros:
-    - y_true: etiquetas verdaderas (n_samples,)
-    - y_pred_probs: probabilidades predichas (n_samples, n_classes)
-    - class_names: lista de nombres de clases
-    - save_path: carpeta donde guardar la imagen
-    - epoch: opcional, para diferenciar curvas por epoch
+    Parameters:
+    - y_true: true labels (n_samples,)
+    - y_pred_probs: predicted probabilities (n_samples, n_classes)
+    - class_names: list of class names
+    - save_path: folder where to save the image
+    - epoch: optional, epoch number to include in the file name
     """
 
-    # --- Normalización de datos (evita el error) ---
+    # --- data normalization ---
     y_true = np.array(y_true)
     y_pred_probs = np.array(y_pred_probs)
 
-    # --- Validaciones para detectar errores temprano ---
-    assert y_true.ndim == 1, f"y_true debe ser 1D, forma recibida: {y_true.shape}"
-    assert y_pred_probs.ndim == 2, f"y_pred_probs debe ser 2D, forma: {y_pred_probs.shape}"
+    # --- early errors detection ---
+    assert y_true.ndim == 1, f"y_true must be 1D, shape recibed: {y_true.shape}"
+    assert y_pred_probs.ndim == 2, f"y_pred_probs must be 2D, shape: {y_pred_probs.shape}"
     assert y_pred_probs.shape[0] == y_true.shape[0], \
-        f"Las filas no coinciden entre y_true ({y_true.shape[0]}) y y_pred_probs ({y_pred_probs.shape[0]})"
+        f"the row count of y_true ({y_true.shape[0]}) and y_pred_probs ({y_pred_probs.shape[0]}) do not match"
 
     n_classes = len(class_names)
     y_true_bin = label_binarize(y_true, classes=range(n_classes))
@@ -49,18 +49,18 @@ def save_roc_curve(y_true, y_pred_probs, class_names, save_path, epoch=None):
     file_path = os.path.join(save_path, file_name)
     plt.savefig(file_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✅ Curva ROC guardada en: {file_path}")
+    print(f"✅ Curva ROC saved in : {file_path}")
 
 
 def save_loss_curve(train_losses, val_losses, save_path, epochs=None):
     """
-    Guarda la curva de pérdida de entrenamiento y validación.
+    saved loss curve for training and validation.
     
-    Parámetros:
-    - train_losses: lista de pérdidas de entrenamiento por epoch
-    - val_losses: lista de pérdidas de validación por epoch
-    - save_path: carpeta donde guardar la imagen
-    - epochs: opcional, número total de epochs entrenados
+    Parameters:
+    - train_losses: list of training losses per epoch
+    - val_losses: list of validation losses per epoch
+    - save_path: folder where to save the image
+    - epochs: optional, total number of epochs trained
     """
     plt.figure(figsize=(8,6))
     
@@ -78,4 +78,4 @@ def save_loss_curve(train_losses, val_losses, save_path, epochs=None):
 
     plt.savefig(file_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✅ Curva de pérdida guardada en: {file_path}")
+    print(f"✅ Loss curve saved in: {file_path}")
