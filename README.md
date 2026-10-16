@@ -1,18 +1,14 @@
 # CoatCervix
 
-**A Lightweight Hybrid Transformer for Efficient Cervical Cancer Screening**
+**A hybrid convolutional and Transformer model for the classification of cervical transformation zone types**
 
 ---
 
 ## Introduction
 
-CoatCervix is a specialized deep learning architecture for automated classification of cervical transformation zone types from colposcopy imagery. Designed for deployment in resource-constrained clinical environments, the model combines the representational power of vision transformers with the computational efficiency required for point-of-care screening applications.
+CoatCervix classifies colposcopy images into the three transformation zone types (Type 1, Type 2, and Type 3) of the International Federation for Cervical Pathology and Colposcopy. It uses the CoaT-Lite-Medium backbone (Xu et al., 2021), pretrained on ImageNet and used without internal modifications, followed by a classification head with the TanhExp activation, and contrast enhancement with CLAHE.
 
-The architecture addresses three fundamental challenges in computer-aided cervical cancer screening:
-
-1. **Diagnostic Accuracy**: Achieving clinician-level classification performance across transformation zone types
-2. **Computational Efficiency**: Enabling inference on edge devices without specialized hardware accelerators
-3. **Robustness**: Maintaining consistent performance across variable image acquisition conditions
+Across five random seeds, the model reached a mean accuracy of 79.0% ± 2.0% and a mean macro F1-score of 75.1% ± 2.5% on the test set (81.3% and 78.1% in its best run), with a computational cost of 10.41 GFLOPs and 44.32M parameters. These results come from a single public dataset and have not been validated externally; see the paper for the limitations.
 
 ---
 
@@ -20,18 +16,16 @@ The architecture addresses three fundamental challenges in computer-aided cervic
 
 1. [Requirements](#requirements)
 2. [Quick Start](#quick-start)
-3. [Methodology](#methodology)
-   - [Data Preparation and Stratification](#data-preparation-and-stratification)
-   - [Preprocessing Pipeline](#preprocessing-pipeline)
-   - [Network Architecture](#network-architecture)
-   - [Custom Classification Head](#custom-classification-head)
-4. [Training Protocol](#training-protocol)
-5. [Repository Structure](#repository-structure)
-6. [Acknowledgments](#acknowledgments)
+3. [Dataset](#dataset)
+4. [Methodology](#methodology)
+5. [Training Protocol](#training-protocol)
+6. [Interpretability](#interpretability)
+7. [Repository Structure](#repository-structure)
+8. [Acknowledgments](#acknowledgments)
 
 ---
 
-**Dependencies:**
+## Requirements
 
 ```
 torch>=1.12.0
@@ -42,177 +36,113 @@ scikit-learn>=1.0.0
 numpy>=1.21.0
 matplotlib>=3.5.0
 ptflops>=0.6.0
+seaborn
+grad-cam
+shap
+lime
+scikit-image
+pandas
+scipy
 ```
+
+`shap`, `lime`, `scikit-image`, `pandas`, and `scipy` are needed only for the scripts in `revision/` and `experiments/`. The experiments of the paper were run with timm 1.0.19.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Clone repository
-git clone https://github.com/username/CoatCervix.git
+git clone https://github.com/Mandara2/CoatCervix.git
 cd CoatCervix
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Execute training pipeline
 python main.py
 ```
+
+Before running, set `BASE_PATH` in `config/settings.py` (it is a placeholder). The data are read from `<BASE_PATH>/Cervical_clean` as `X_train.npy`, `y_train.npy`, `X_test.npy`, and `y_test.npy`, with images in NHWC format and values in [0, 1].
 
 ---
 
 ## Dataset
 
-The refined subset of the Intel & MobileODT Cervical Cancer 
-Screening dataset used in this study — comprising 766 manually 
-reviewed and preprocessed colposcopic images — is publicly 
-available on Zenodo:
+The curated subset of the Intel & MobileODT Cervical Cancer Screening dataset used in this study (766 images) is available on Zenodo:
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19212544.svg)](https://doi.org/10.5281/zenodo.19212544)
 
-> Medina-López, R. et al. (2025). *Refined Subset of the Intel 
-> & MobileODT Cervical Cancer Screening Dataset: Manual Curation 
-> and ROI Preprocessing for Colposcopic Image Classification*. 
-> Zenodo. https://doi.org/10.5281/zenodo.19212544
+> Medina-López, R. et al. (2025). *Refined Subset of the Intel & MobileODT Cervical Cancer Screening Dataset: Manual Curation and ROI Preprocessing for Colposcopic Image Classification*. Zenodo. https://doi.org/10.5281/zenodo.19212544
+
+---
 
 ## Methodology
 
-### Data Preparation and Stratification
+### Curation
 
-The experimental dataset derives from the **Intel and MobileODT Cervical Cancer Screening** competition, subjected to rigorous quality control and stratified partitioning.
+Each partition of the original competition was curated independently, and no image was moved between them. Images were excluded according to three criteria, defined with respect to the anatomical structures required to assign a transformation zone type:
 
-**Quality Control Protocol:**
+| Criterion | Exclusion when |
+|-----------|----------------|
+| Specular reflection | Glare covers the external cervical os or the squamocolumnar junction |
+| Occlusion | The speculum, blood, mucus, or the vaginal walls conceal the transformation zone |
+| Blur | Defocus or motion prevents the squamocolumnar junction from being distinguished |
 
-| Criterion | Action |
-|-----------|--------|
-| Motion artifacts | Exclusion of images exhibiting blur from patient movement |
-| Illumination defects | Removal of under/overexposed acquisitions |
-| Occlusion | Filtering of images with excessive speculum interference |
-| Label verification | Expert cross-validation of transformation zone annotations |
+For each retained image, the region of interest was cropped manually to the cervix. The transformation zone labels were kept from the original dataset. An MD5 check found no identical files within or between partitions; it cannot exclude distinct images of the same patient.
 
-**Stratified Data Partitioning:**
+| Cervix type | Training partition (raw → curated) | First stage test partition (raw → curated) | Total (raw → curated) |
+|---|---|---|---|
+| Type 1 | 250 → 127 | 87 → 58 | 337 → 185 |
+| Type 2 | 781 → 284 | 265 → 124 | 1,046 → 408 |
+| Type 3 | 450 → 130 | 160 → 43 | 610 → 173 |
+| **Total** | **1,481 → 541** | **512 → 225** | **1,993 → 766** |
 
-The dataset was partitioned using stratified random sampling to preserve class distributions across subsets. The stratification procedure ensures proportional representation of each transformation zone type (Type 1, Type 2, Type 3) within training, validation, and test sets.
+### Data splitting
 
-| Partition | n | Proportion | Purpose |
-|-----------|---|------------|---------|
-| Training | 490 | 64% | Model parameter optimization |
-| Validation | 122 | 16% | Hyperparameter tuning and early stopping |
-| Test | 154 | 20% | Final performance evaluation |
-| **Total** | **766** | **100%** | — |
+The test set is the curated first stage test partition (225 images). The curated training partition (541 images) is split into training and validation sets with a stratified split of 80% and 20% (`random_state=42`):
 
-**Reproducibility:** All partitions were generated using a fixed random seed (SEED=42), enabling exact replication of experimental conditions. The stratification guarantees that class imbalance characteristics are consistent across all data subsets.
+| Partition | n | Purpose |
+|-----------|---|---------|
+| Training | 432 | Weight updates |
+| Validation | 109 | Selection of the checkpoint with the highest macro F1-score |
+| Test | 225 | Final evaluation |
+| **Total** | **766** | |
 
-### Preprocessing Pipeline
+### Preprocessing (`data/preprocessing.py`)
 
-Input images undergo a standardized preprocessing pipeline prior to model ingestion:
+1. Resize to 224 × 224 pixels.
+2. CLAHE on the L channel of the LAB color space (OpenCV; clip limit 2.0, tile grid 8 × 8).
+3. Normalization with the channel mean and standard deviation of the resized training images (computed before CLAHE and applied to the filtered images), with ε = 10⁻⁸. ImageNet statistics are not used.
 
-**Stage 1: Contrast Enhancement via CLAHE**
+No data augmentation is applied.
 
-Contrast Limited Adaptive Histogram Equalization (CLAHE) is applied exclusively to the luminance channel (L*) in CIE LAB color space. This approach enhances local contrast while preserving chromatic information critical for tissue differentiation.
+### Model (`models/custom_coat.py`)
 
-Color space transformation: `RGB → Linear RGB → XYZ (D65) → LAB`
+The backbone is `timm.create_model("coat_lite_medium", pretrained=True, num_classes=0)`, without internal modifications. The classification head is:
 
-| CLAHE Parameter | Value | Justification |
-|-----------------|-------|---------------|
-| Clip Limit | 2.0 | Constrains contrast amplification to prevent noise enhancement |
-| Tile Grid | 8 × 8 | Provides sufficient local adaptivity for colposcopy imagery |
+```
+Linear(d, 512) → TanhExp → Dropout(0.4) → Linear(512, 3)
+```
 
-**Stage 2: Normalization**
-
-Post-enhancement normalization using ImageNet channel statistics:
-
-<p align="center">
-  <img src="https://latex.codecogs.com/svg.latex?\hat{x}_c=\frac{x_c-\mu_c}{\sigma_c+\epsilon}" alt="Normalization"/>
-</p>
-
-where μ = [0.485, 0.456, 0.406], σ = [0.229, 0.224, 0.225], and ε = 10⁻⁸.
-
-### Network Architecture
-
-CoatCervix employs the **CoaT-Lite Medium** backbone, a hybrid vision transformer implementing serial co-attention mechanisms. The architecture processes input through alternating convolutional and transformer stages:
-
-| Stage | Operation | Output |
-|-------|-----------|--------|
-| Stem | Convolutional embedding | Patch tokens |
-| Stages 1-2 | Convolutional blocks | Local feature hierarchies |
-| Stages 3-4 | Transformer blocks with co-scale attention | Global context representations |
-| Head | Custom classification module | Class logits |
-
-**Architectural Rationale:**
-
-- **Convolutional stages** establish translation-equivariant local features corresponding to epithelial texture patterns
-- **Transformer stages** enable long-range dependency modeling for holistic morphological assessment
-- **Co-scale attention** facilitates multi-resolution feature integration without explicit feature pyramid networks
-
-### Custom Classification Head
-
-The backbone output is processed through a task-specific classification head designed for the three-class transformation zone problem:
-
-<p align="center">
-  <img src="https://latex.codecogs.com/svg.latex?\text{Linear}(d_{in},\,512)\;\to\;\text{TanhExp}\;\to\;\text{Dropout}(0.3)\;\to\;\text{Linear}(512,\,3)" alt="Head Architecture"/>
-</p>
-
-**Component Specifications:**
-
-| Layer | Configuration | Function |
-|-------|---------------|----------|
-| FC1 | d_in → 512 | Dimensionality reduction from backbone features |
-| TanhExp | — | Non-linear activation with regularization properties |
-| Dropout | p = 0.3 | Stochastic regularization during training |
-| FC2 | 512 → 3 | Final projection to class logits |
-
-**TanhExp Activation Function:**
-
-The intermediate activation employs TanhExp, defined as:
-
-<p align="center">
-  <img src="https://latex.codecogs.com/svg.latex?\sigma(x)=x\cdot\tanh(e^x)" alt="TanhExp"/>
-</p>
-
-with derivative:
-
-<p align="center">
-  <img src="https://latex.codecogs.com/svg.latex?\sigma'(x)=\tanh(e^x)+x\cdot%20e^x\cdot\text{sech}^2(e^x)" alt="TanhExp Derivative"/>
-</p>
-
-**TanhExp Properties:**
-
-| Property | Mathematical Behavior | Practical Benefit |
-|----------|----------------------|-------------------|
-| C∞ Continuity | Infinitely differentiable | Stable gradient computation |
-| Negative Saturation | σ(x) → 0 as x → -∞ | Implicit L2 regularization effect |
-| Positive Linearity | σ(x) ≈ x for x >> 0 | Gradient preservation in deep networks |
-| Non-monotonicity | Local minimum at x ≈ -1.28 | Enhanced representational capacity |
+where TanhExp is σ(x) = x · tanh(eˣ) (Liu and Di, 2020), implemented in `models/activations.py`.
 
 ---
 
 ## Training Protocol
 
-**Execution:**
+Hyperparameters are defined in `config/settings.py`:
 
-```bash
-python main.py
-```
+| Parameter | Value |
+|-----------|-------|
+| `epochs` | 50 |
+| `batch_size` | 16 |
+| `lr` | 1 × 10⁻⁴ (Adam) |
+| `num_classes` | 3 |
+| `SEED` | 42 |
 
-**Hyperparameter Configuration** (defined in `config/settings.py`):
+The loss is cross entropy. After each epoch, the model is evaluated on the validation set, and the checkpoint with the highest macro F1-score is saved. The evaluation (`training/evaluate.py`, `training/metrics.py`) reloads that checkpoint and reports accuracy and macro averaged precision, recall, and F1-score on the test set, together with the confusion matrix and the ROC curves.
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `epochs` | 50 | Maximum training iterations |
-| `batch_size` | 16 | Samples per gradient update |
-| `lr` | 1×10⁻⁴ | Adam optimizer learning rate |
-| `num_classes` | 3 | Output dimensionality |
-| `SEED` | 42 | Random state for reproducibility |
+---
 
-**Training Pipeline Stages:**
+## Interpretability
 
-1. **Initialization**: Backbone loaded with ImageNet pretrained weights; classification head randomly initialized
-2. **Data Augmentation**: Standard augmentations applied during training (rotation, flipping, color jitter)
-3. **Optimization**: Adam optimizer with default β parameters
-4. **Validation**: Per-epoch evaluation computing accuracy and macro-averaged F1-score
-5. **Artifact Generation**: Automatic export of training curves, confusion matrices, and Grad-CAM visualizations
+`visualization/gradcam.py` produces the activation maps of the submitted version of the paper: LayerCAM with eigen smoothing at the last convolutional layer of the network, selected automatically. The quantitative evaluation carried out during the revision showed that maps at this layer are not faithful to the model, and the revised paper uses Grad-CAM at the output of the third stage of CoaT, together with SHAP (expected gradients) and LIME. The code of these analyses, including the faithfulness evaluation with NAOPC and the randomization tests, is in `revision/`.
 
 ---
 
@@ -221,26 +151,28 @@ python main.py
 ```
 CoatCervix/
 ├── config/
-│   └── settings.py              # Hyperparameter definitions
+│   └── settings.py              # Hyperparameters and paths
 ├── data/
-│   ├── dataloaders.py           # PyTorch DataLoader factory
-│   ├── loaders.py               # Raw data loading utilities
-│   ├── preprocessing.py         # CLAHE and normalization
-│   └── label_mapper.py          # Label encoding schemes
+│   ├── dataloaders.py           # PyTorch DataLoaders
+│   ├── loaders.py               # Loading of the .npy files and validation split
+│   ├── preprocessing.py         # Resize, CLAHE, and normalization
+│   └── label_mapper.py          # Binary label modes (not used by the main pipeline)
 ├── models/
-│   ├── activations.py           # TanhExp implementation
-│   └── coat_cervix.py           # Model architecture
+│   ├── activations.py           # TanhExp
+│   └── custom_coat.py           # CustomCoaT: backbone and classification head
 ├── pipeline/
-│   └── pipeline_runner.py       # Training orchestration
+│   └── pipeline_runner.py       # Training and evaluation pipeline
 ├── training/
-│   ├── evaluate.py              # Evaluation procedures
-│   ├── metrics.py               # Metric computation
+│   ├── evaluate.py              # Evaluation on the test set
+│   ├── metrics.py               # Metrics
 │   ├── train.py                 # Training loop
-│   └── utils.py                 # Utility functions
+│   └── utils.py                 # Utilities (includes calculate_efficiency_metrics, not called by the pipeline)
 ├── visualization/
-│   ├── confusion.py             # Confusion matrix plots
-│   ├── gradcam.py               # Grad-CAM generation
-│   └── plots.py                 # Training curve visualization
+│   ├── confusion.py             # Confusion matrix
+│   ├── gradcam.py               # LayerCAM maps (submitted version)
+│   └── plots.py                 # Training curves and ROC curves
+├── experiments/                 # Scripts of the results of the paper not produced by main.py (see experiments/README.md)
+├── revision/                    # Analyses added during the peer review (see revision/README.md)
 ├── main.py                      # Entry point
 └── requirements.txt             # Dependencies
 ```
@@ -254,7 +186,7 @@ This research was conducted with support from:
 - **Universidad de Caldas**
 - **Universidad Autónoma de Manizales**
 
-The authors acknowledge Intel Corporation and MobileODT for providing the foundational cervical cancer screening dataset through the Kaggle competition platform.
+The authors acknowledge Intel Corporation and MobileODT for the Intel & MobileODT Cervical Cancer Screening dataset, released through the Kaggle competition platform.
 
 ---
 

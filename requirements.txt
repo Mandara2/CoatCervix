@@ -6,3 +6,10 @@ scikit-learn>=1.0.0
 numpy>=1.21.0
 matplotlib>=3.5.0
 ptflops>=0.6.0
+seaborn
+grad-cam
+shap
+lime
+scikit-image
+pandas
+scipy
